@@ -1,0 +1,34 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:          bray_photobooth
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:     $local_fs $remote_fs
+# Should-Start:      $syslog
+# Should-Stop:       $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start or stop the inetd daemon.
+### END INIT INFO
+
+pid_file=/var/run/bray_photobooth.pid
+
+# Carry out specific functions when asked to by the system
+case "$1" in
+  start)
+    echo "Starting photobooth"
+    start-stop-daemon --start --quiet --background \
+      --pidfile $pid_file --make-pidfile \
+      --exec /usr/bin/python /opt/photobooth/camera.py
+    ;;
+  stop)
+    echo "Stopping photobooth"
+    start-stop-daemon --stop --quiet --oknodo --pidfile $pid_file
+    ;;
+  *)
+    echo "Usage: /etc/init.d/blah {start|stop}"
+    exit 1
+    ;;
+esac
+
+exit 0
