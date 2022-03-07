@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/env python3
 
 # apt-get install -y python python-setuptools python-pip python-dev python-imaging imagemagick
 # pip install picamera
@@ -11,9 +11,10 @@ import random
 from time import sleep
 # import gc
 import pydebug
-import Image
+from PIL import Image
 import RPi.GPIO as GPIO
 import picamera
+import time
 
 debug = pydebug.debug("photobooth")
 
@@ -208,6 +209,7 @@ def take_photo(photo_number, filename_prefix):
     for counter in range(COUNTDOWN_FROM, 0, -1):
         # push the number down to bottom of display
         print_overlay("\n\n\n\n" + str(counter))
+        debug("take_photo(%s, waiting ...%s)" % (photo_number, counter))
         sleep(1)
 
     #Take still
@@ -263,6 +265,7 @@ def assemble_2x2(filename_prefix):
               a        w       2*b       w        a
     """
     f = "assemble_2x2(%s)" % filename_prefix
+    s = time.time()
     debug(f)
 
     input_filenames = []
@@ -320,6 +323,7 @@ def assemble_2x2(filename_prefix):
     output_image.transpose(Image.FLIP_LEFT_RIGHT).save(REAL_PATH + output_filename, "JPEG", quality=JPEG_QUALITY)
     # overlay_image(output_filename, 3, 4)
     # return output_filename
+    debug("%s took: %2.3fs" % (f, time.time() - s))
 
 def assemble_1x4(filename_prefix):
     """Assembles four pictures into a 1x4 grid
@@ -465,7 +469,7 @@ def main():
             continue
 
         # Button has been pressed!
-        debug("main() Button pressed! Y ou folks are in for a treat!")
+        debug("main() Button pressed!")
         filename_prefix = get_base_filename_for_images()
         remove_overlay(overlay_2)
         remove_overlay(overlay_1)
@@ -509,16 +513,19 @@ def main():
         debug("main() Press the button to take a photo")
 
 if __name__ == "__main__":
+    start = time.time()
     try:
         main()
 
     except KeyboardInterrupt:
-        print "goodbye"
+        print("goodbye")
 
     except Exception as exception:
-        print "unexpected error: ", str(exception)
+        print("unexpected error: %s" % exception)
 
     finally:
         CAMERA.stop_preview()
         CAMERA.close()
         GPIO.cleanup()
+
+    print("Total run time: %2.3f" % (time.time() - start))
