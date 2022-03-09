@@ -8,6 +8,7 @@ import datetime
 import os
 import glob
 import random
+import math
 from time import sleep
 # import gc
 import pydebug
@@ -43,22 +44,10 @@ COUNTDOWN_FROM = 3
 JPEG_QUALITY = 90
 FINAL_REVIEW_DELAY = 5
 
-# take photos at this resolution
-# PHOTO_W = 1920
-# PHOTO_H = 1152
-PHOTO_W = 1440
-PHOTO_H = 900
-# PHOTO_W = 1296
-# PHOTO_H = 972
-# Max available
-# PHOTO_W = 2592
-# PHOTO_H = 1944
-
-# resolution of the photo booth display
-#SCREEN_W = 800
-#SCREEN_H = 480
-SCREEN_W = 1440
-SCREEN_H = 900
+# aspect 4:3 (camera max/2) (minor move on capture)
+PHOTO_W, PHOTO_H = 1296, 972
+# aspect 4:3 (camera max) (no move on capture) (tends to crash)
+# PHOTO_W, PHOTO_H = 2592, 1944
 
 if TESTMODE_FAST:
     # TOTAL_PICS = 2     # number of pics to be taken
@@ -273,15 +262,15 @@ def assemble_2x2(filename_prefix):
         input_filenames.append(filename_prefix + '_p' + str(i) + '.jpg')
 
     # Thumbnail size of pictures
-    outer_border = 50
-    inner_border = 20
+    outer_border = math.floor(PHOTO_W / 50)
+    inner_border = math.floor(PHOTO_W / 72)
     thumb_box = (
         int(PHOTO_W / 2),
         int(PHOTO_H / 2)
     )
     thumb_size = (
-        thumb_box[0] - outer_border - inner_border ,
-        thumb_box[1] - outer_border - inner_border
+        int(thumb_box[0] - outer_border - inner_border) ,
+        int(thumb_box[1] - outer_border - inner_border)
     )
     debug("%s Got vars" % f)
 
@@ -305,14 +294,14 @@ def assemble_2x2(filename_prefix):
         debug("%s Loaded #%s" % (f, photo_number))
         img.thumbnail(thumb_size)
         offsets = {
-            1: (thumb_box[0] - inner_border - img.size[0] ,
-                thumb_box[1] - inner_border - img.size[1]),
-            0: (thumb_box[0] + inner_border ,
-                thumb_box[1] - inner_border - img.size[1]),
-            3: (thumb_box[0] - inner_border - img.size[0] ,
-                thumb_box[1] + inner_border),
-            2: (thumb_box[0] + inner_border ,
-                thumb_box[1] + inner_border),
+            1: (int(thumb_box[0] - inner_border - img.size[0]),
+                int(thumb_box[1] - inner_border - img.size[1])),
+            0: (int(thumb_box[0] + inner_border),
+                int(thumb_box[1] - inner_border - img.size[1])),
+            3: (int(thumb_box[0] - inner_border - img.size[0]),
+                int(thumb_box[1] + inner_border)),
+            2: (int(thumb_box[0] + inner_border),
+                int(thumb_box[1] + inner_border)),
         }
         output_image.paste(img, offsets[photo_number])
         debug("%s Pasted #%s" % (f, photo_number))
@@ -431,7 +420,7 @@ def main():
     debug("main() Press the button to take a photo")
 
     #Start camera preview
-    CAMERA.start_preview(resolution=(SCREEN_W, SCREEN_H))
+    CAMERA.start_preview()
 
     # Display intro screen
     intro_image_1 = "/assets/intro_1.jpg"
@@ -501,8 +490,8 @@ def main():
         timed_overlay("done")
 
         # If we were doing a test run, exit here.
-        # if TESTMODE_AUTOPRESS_BUTTON:
-        #     break
+        if TESTMODE_AUTOPRESS_BUTTON:
+            break
 
         # debug("main() freeing memory")
         # gc.collect()
