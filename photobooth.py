@@ -26,6 +26,7 @@ PREP_DELAY = 3
 COUNTDOWN_FROM = 3
 JPEG_QUALITY = 90
 FINAL_REVIEW_DELAY = 5
+RENDER_COMPOSITE = False
 # aspect 4:3 (camera max/2) (minor move on capture)
 PHOTO_W, PHOTO_H = 1296, 972
 # aspect 4:3 (camera max) (no move on capture) (tends to crash)
@@ -62,7 +63,7 @@ def flash(on):
 
 def get_base_filename_for_images():
     debug("get_base_filename_for_images()")
-    filename = '/photos/' + str(datetime.datetime.now()).split('.')[0]
+    filename = "/snaps/%s" % str(datetime.datetime.now()).split(".")[0]
     filename = filename.replace(" ", "_").replace(":", "").replace("-", "")
     return filename
 
@@ -75,7 +76,7 @@ def overlay_image(image_path, duration=0, layer=3):
     # The camera block size is 32x16 so any image data provided to a renderer
     # must have a width with a multiple of 32, and a height with a multiple of 16
     # http://picamera.readthedocs.io/en/release-1.10/recipes1.html#overlaying-images-on-the-preview
-    f = "-- overlay_image(%s, %s, %s)" % (image_path, duration, layer)
+    debug("overlay_image(%s, %s, %s)" % (image_path, duration, layer))
     # Load the arbitrarily sized image
     img = Image.open(REAL_PATH + image_path)
     # Create an image padded to the required size with, mode 'RGB'
@@ -107,7 +108,7 @@ def timed_overlay(overlay_key, filename_prefix=""):
         "pose4": (PREP_DELAY, "/assets/get_ready_4.jpg"),
         "processing": (2, "/assets/processing.jpg"),
         "done": (FINAL_REVIEW_DELAY, "/assets/all_done.jpg"),
-        "2x2": (FINAL_REVIEW_DELAY, filename_prefix + "_2x2.jpg"),
+        "2x2": (FINAL_REVIEW_DELAY, "%s_2x2.jpg" % filename_prefix),
     }
     seconds = overlay_cfg[overlay_key][0]
     image = overlay_cfg[overlay_key][1]
@@ -115,25 +116,27 @@ def timed_overlay(overlay_key, filename_prefix=""):
 
 def take_photo(photo_number, filename_prefix):
     debug("take_photo(%s, ...)" % (photo_number))
-    # get filename to use
-    filename = filename_prefix + '_p' + str(photo_number) + '.jpg'
+    filename = "%s_p%s.jpg" % (filename_prefix, photo_number)
     # countdown from X, and display countdown on screen
     for counter in range(COUNTDOWN_FROM, 0, -1):
         # push the number down to bottom of display
-        print_overlay("\n\n\n\n" + str(counter))
+        print_overlay("\n\n\n\n%s" % counter)
         debug("take_photo(%s, waiting ...%s)" % (photo_number, counter))
         sleep(1)
+    # flash(True)
+    # time.sleep(.25)
     CAMERA.annotate_text = ''
     CAMERA.capture(REAL_PATH + filename)
+    # flash(False)
     debug("take_photo(%s, ...) Saved %s" % (photo_number, filename))
 
 def playback_singles(filename_prefix):
     debug("playback_singles(%s)" % filename_prefix)
     prev_overlay = False
     for photo_number in range(1, TOTAL_PICS + 1):
-        filename = filename_prefix + '_p' + str(photo_number) + '.jpg'
+        filename = "%s_p%s.jpg" % (filename_prefix, photo_number)
         this_overlay = overlay_image(filename, False, 3+TOTAL_PICS)
-        # The idea here, is only remove the previous overlay after a new overlay is added.
+        # Only remove the previous overlay after a new overlay is added.
         if prev_overlay:
             remove_overlay(prev_overlay)
         sleep(2)
@@ -178,7 +181,7 @@ def assemble_2x2(filename_prefix):
 
     input_filenames = []
     for i in range (1, TOTAL_PICS + 1):
-        input_filenames.append(filename_prefix + '_p' + str(i) + '.jpg')
+        input_filenames.append("%s_p%s.jpg" % (filename_prefix, i))
 
     # Thumbnail size of pictures
     outer_border = math.floor(PHOTO_W / 50)
@@ -221,90 +224,61 @@ def assemble_2x2(filename_prefix):
         debug("%s Pasted #%s" % (f, photo_number))
 
     # Save assembled image
-    output_filename = filename_prefix + '_2x2.jpg'
+    output_filename = "%s_2x2.jpg" % filename_prefix
     # output_image.save(REAL_PATH + output_filename, "JPEG")
     output_image.transpose(Image.FLIP_LEFT_RIGHT).save(REAL_PATH + output_filename, "JPEG", quality=JPEG_QUALITY)
     # overlay_image(output_filename, 3, 4)
     # return output_filename
     debug("%s took: %2.3fs" % (f, time.time() - s))
 
-def main():
-    """
-    Main program loop
-    """
-
-    #Start Program
-    debug("main() Welcome to the photo booth!")
-    debug("main() Press the button to take a photo")
-
-    #Start camera preview
-    CAMERA.start_preview()
-
-    # Display intro screen
-    intro_image_1 = "/assets/intro_1.jpg"
-    intro_image_2 = "/assets/intro_2.jpg"
-    overlay_1 = overlay_image(intro_image_1, 0, 3)
-    overlay_2 = overlay_image(intro_image_2, 0, 4)
-
-    #Wait for someone to push the button
+def intro_loop():
+    debug("intro_loop()")
     i = 0
     blink_speed = 5
+    ol_intro1 = overlay_image("/assets/intro_1.png", 0, 3)
+    ol_intro2 = overlay_image("/assets/intro_2.png", 0, 4)
     while True:
-
-        #Use falling edge detection to see if button is pushed
-        pressed_snap = GPIO.wait_for_edge(PIN_CAMERA_BTN, GPIO.FALLING, timeout=100)
-        pressed_exit = GPIO.wait_for_edge(PIN_EXIT_BTN, GPIO.FALLING, timeout=100)
-
-        if pressed_exit is not None:
-            return #Exit the photo booth
-
+        i += 1
+        if i == blink_speed:
+            ol_intro2.alpha = 255
+        elif i == (2 * blink_speed):
+            ol_intro2.alpha = 0
+            i = 0
+        pressed_snap = GPIO.wait_for_edge(PIN_CAMERA_BTN, GPIO.FALLING, timeout=200)
         if TESTMODE_AUTOPRESS_BUTTON:
             pressed_snap = True
+        if pressed_snap:
+            break
+        # pressed_exit = GPIO.wait_for_edge(PIN_EXIT_BTN, GPIO.FALLING, timeout=100)
+    debug("show_intro() Snap pressed!")
+    remove_overlay(ol_intro2)
+    remove_overlay(ol_intro1)
 
-        #Stay inside loop, until button is pressed
-        if pressed_snap is None:
-
-            #After every 5 cycles, alternate the overlay
-            i = i + 1
-            if i == blink_speed:
-                overlay_2.alpha = 255
-            elif i == (2 * blink_speed):
-                overlay_2.alpha = 0
-                i = 0
-
-            #Regardless, restart loop
-            continue
-
-        # Button has been pressed!
-        debug("main() Button pressed!")
+def main():
+    overlay_image("/assets/black.jpg", 0, 0)
+    CAMERA.start_preview()
+    while True:
+        intro_loop()
         filename_prefix = get_base_filename_for_images()
-        remove_overlay(overlay_2)
-        remove_overlay(overlay_1)
-
         for photo_number in range(1, TOTAL_PICS + 1):
-            # Show screen alerting user to pose
-            timed_overlay("pose" + str(photo_number))
-            # Take the photo
+            timed_overlay("pose%s" % photo_number)
             take_photo(photo_number, filename_prefix)
-
         # Show processing message prior to showing previews, it will block the camera
-        overlay_3 = overlay_image("/assets/black.jpg", 0, 3)
-        overlay_4 = overlay_image("/assets/processing.jpg", 0, 4)
-        assemble_2x2(filename_prefix)
-        remove_overlay(overlay_4)
-        # playback_singles(filename_prefix)
-        timed_overlay("2x2", filename_prefix)
-        remove_overlay(overlay_3)
+        ol_black = overlay_image("/assets/black.jpg", 0, 3)
+        ol_proc = overlay_image("/assets/processing.jpg", 0, 4)
+        if RENDER_COMPOSITE:
+            assemble_2x2(filename_prefix)
+            remove_overlay(ol_proc)
+            timed_overlay("2x2", filename_prefix)
+        else:
+            sleep(2)
+            remove_overlay(ol_proc)
+            playback_singles(filename_prefix)
         timed_overlay("done")
-
+        remove_overlay(ol_black)
         # If we were doing a test run, exit here.
         if TESTMODE_AUTOPRESS_BUTTON:
             break
-
-        # Otherwise, display intro screen again
-        overlay_1 = overlay_image(intro_image_1, 0, 3)
-        overlay_2 = overlay_image(intro_image_2, 0, 4)
-        debug("main() Press the button to take a photo")
 
 if __name__ == "__main__":
     start = time.time()
