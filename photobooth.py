@@ -70,6 +70,10 @@ CAMERA.annotate_text_size = 150
 CAMERA.resolution = (PHOTO_W, PHOTO_H)
 # When preparing for photos, the preview will be flipped horizontally.
 CAMERA.hflip = True
+CAMERA.framerate = 15
+CAMERA.awb_mode = "flash"
+# CAMERA.brightness = 52
+# CAMERA.contrast = -5
 
 ####################
 ### Other Config ###
